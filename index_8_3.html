@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>妖币分析器 · 信号列表 + 分批止盈 + 持续时间</title>
+<style>
+:root{
+  --bg: #0c0c0d;
+  --panel: #171716;
+  --panel-hover: #201f1d;
+  --grid: #8a7250;
+  --phosphor: #f2ede3;
+  --up: #7fae8c;
+  --alert: #b8756a;
+  --amber: #c9a24b;
+  --text-dim: #8c877d;
+}
+* { box-sizing: border-box; }
+body{
+  margin:0;
+  background: var(--bg);
+  color: var(--phosphor);
+  font-family: 'IBM Plex Mono', 'Consolas', monospace;
+  min-height:100vh;
+}
+header{
+  padding: 24px 20px 14px;
+  border-bottom: 1px solid var(--grid);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+header h1{
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  font-size: 1.4rem;
+  margin: 0 0 4px;
+  color: var(--phosphor);
+}
+header p{ margin:0; color: var(--text-dim); font-size: 0.82rem; }
+.disclaimer{
+  background: rgba(255,180,84,0.08);
+  border: 1px solid rgba(255,180,84,0.3);
+  color: var(--amber);
+  font-size: 0.72rem;
+  padding: 8px 12px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+main{ max-width: 1000px; margin: 0 auto; padding: 20px; }
+.panel{
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.params{
+  display:flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.param-item{
+  display:flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.param-item input{
+  background: var(--bg);
+  border: 1px solid var(--grid);
+  color: var(--phosphor);
+  padding: 6px 8px;
+  width: 100px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.param-item select{
+  background: var(--bg);
+  border: 1px solid var(--grid);
+  color: var(--phosphor);
+  padding: 6px 8px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.param-item select:focus{ outline:none; border-color: var(--grid); }
+.param-item input:focus{ outline:none; border-color: var(--phosphor); }
+button{
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  color: var(--phosphor);
+  padding: 9px 18px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  align-self: flex-end;
+  transition: border-color 0.2s, background 0.2s;
+}
+button:hover{ border-color: var(--phosphor); background: var(--panel-hover); }
+button:active{ transform: translateY(1px); }
+button:disabled{ opacity: 0.4; cursor: not-allowed; }
+button.active{ border-color: var(--phosphor); background: rgba(138,114,80,0.15); }
+.status-line{
+  display:flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.status-line b{ color: var(--phosphor); }
+.status-dot{
+  display:inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  margin-right: 6px;
+}
+.status-dot.live{
+  background: var(--grid);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%, 100%{ opacity: 1; }
+  50%{ opacity: 0.4; }
+}
+.table-wrap{ overflow-x: auto; }
+.table-wrap.scrollable{ max-height: 560px; overflow-y: auto; }
+table{ width:100%; border-collapse: collapse; font-size: 0.82rem; }
+th, td{ text-align:left; padding: 10px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th{
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+}
+tr.signal-row{ cursor: pointer; transition: background 0.15s; }
+tr.signal-row:hover{ background: var(--panel-hover); }
+td.up{ color: var(--up); }
+td.down{ color: var(--alert); }
+.score-bar{
+  display:inline-block;
+  width: 60px;
+  height: 6px;
+  background: var(--grid);
+  opacity: 0.3;
+  position: relative;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.score-fill{ position:absolute; top:0; left:0; height:100%; background: var(--grid); opacity: 1; }
+.badge{
+  display:inline-block;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border: 1px solid var(--grid);
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+.badge.hit{ color: var(--phosphor); border-color: var(--grid); background: rgba(138,114,80,0.22); }
+.badge.tier-strong{ color: #d99a8a; border-color: #d99a8a; }
+.badge.tier-active{ color: var(--amber); border-color: var(--amber); }
+.badge.tier-ambush{ color: #9db8a8; border-color: #9db8a8; }
+.badge.tier-watch{ color: var(--text-dim); border-color: var(--grid); }
+.badge.na{ opacity: 0.4; border-style: dashed; }
+.badge.risk{ color: var(--amber); border-color: var(--amber); }
+.detail{
+  background: var(--bg);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 14px;
+  transition: max-height 0.35s ease, padding 0.35s ease;
+  white-space: normal;
+}
+.detail.open{ max-height: 900px; padding: 14px; }
+.detail .metrics{ display:flex; gap: 24px; flex-wrap: wrap; margin-bottom: 10px; }
+.detail .metrics div b{ color: var(--phosphor); display:block; font-size: 0.9rem; }
+.strategy-card{
+  border: 1px solid var(--grid);
+  background: rgba(138,114,80,0.07);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.strategy-card.short{ background: rgba(138,114,80,0.07); }
+.strategy-card h4{
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: var(--phosphor);
+  font-weight: 600;
+}
+.strategy-card.short h4{ color: var(--phosphor); }
+.strategy-row{
+  display:flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--grid);
+}
+.strategy-row:last-child{ border-bottom: none; }
+.strategy-row span:last-child{ color: var(--phosphor); font-weight: 600; }
+.strategy-note{
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.empty-state{ text-align:center; padding: 40px 20px; color: var(--text-dim); }
+.section-title{
+  font-size: 0.85rem;
+  color: var(--phosphor);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--grid);
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+}
+.section-title.dim{ color: var(--text-dim); }
+.panel.highlight{
+  border-color: var(--grid);
+}
+.signal-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+.signal-card{
+  border: 1px solid var(--grid);
+  background: var(--panel);
+  padding: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.signal-card:hover{ background: var(--panel-hover); }
+.signal-card.short{ background: var(--panel); }
+.signal-card.short:hover{ background: var(--panel-hover); }
+.card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.card-symbol{ font-size:0.95rem; font-weight:600; color: var(--phosphor); }
+.dir-tag{ font-size:0.7rem; margin-left:6px; }
+.dir-tag.up{ color:var(--up); }
+.dir-tag.down{ color:var(--alert); }
+.card-score{
+  font-size:0.75rem;
+  color:var(--phosphor);
+  border:1px solid var(--grid);
+  padding:2px 9px;
+  border-radius:12px;
+  white-space: nowrap;
+}
+.card-stats{ display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-dim); margin-bottom:10px; }
+.card-stats div{ display:flex; flex-direction:column; gap:3px; }
+.card-stats b{ color: var(--phosphor); font-size:0.82rem; font-weight:600; }
+.card-strategy{
+  display:flex;
+  justify-content:space-between;
+  font-size:0.68rem;
+  color:var(--text-dim);
+  border-top: 1px dashed var(--grid);
+  padding-top: 10px;
+  margin-bottom: 8px;
+}
+.card-strategy div{ display:flex; flex-direction:column; gap:3px; }
+.card-strategy b{ font-size:0.78rem; font-weight:600; }
+.card-strategy-na{ font-size:0.7rem; color:var(--text-dim); padding:8px 0; border-top: 1px dashed var(--grid); }
+.card-badges{ display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px; min-height: 20px; }
+.card-hint{ font-size:0.62rem; color:var(--text-dim); text-align:center; opacity:0.7; }
+.signal-card.expanded .card-hint{ display:none; }
+.signal-card .detail{ margin-top: 4px; }
+.signal-card .detail.open{ margin-top: 10px; }
+.history-wrap{ max-height: 320px; overflow-y: auto; }
+.history-actions{ display:flex; justify-content:flex-end; padding: 10px 16px 0; }
+.history-actions button{ font-size: 0.72rem; padding: 5px 12px; align-self: auto; }
+footer{ text-align:center; color: var(--text-dim); font-size: 0.7rem; padding: 20px; }
+</style>
+</head>
+<body>
+<header>
+<h1>妖币分析器</h1>
+<p>量价齐动 + OI真实性验证 + 资金费率拥挤度 + 分批止盈策略 + 信号持续时间 · 候选池100个</p>
+<div class="disclaimer">
+⚠️ 本工具的信号和策略基于历史价量与合约数据规则计算(进场看突破、止损基于ATR波动率、三档止盈按风险回报比分级),仅供分析参考,不构成任何投资建议。山寨币市场波动大、流动性差、容易被操纵,资金费率极端时尤其容易发生挤仓,请谨慎对待任何"信号",务必自行判断风险。信号卡片上的"持续"时长只在本次页面打开期间累计,刷新页面会重新计时;下方的"妖币历史记录"会持久保存到本地浏览器,包含每个币种首次出现的时间,刷新或重新打开页面也不会丢失。
+</div>
+</header>
+<main>
+<div class="panel">
+<div class="params">
+<div class="param-item">
+<label>最低24h成交额(USDT)</label>
+<input type="number" id="minVolume" value="500000" step="100000">
+</div>
+<div class="param-item">
+<label>放量倍数阈值</label>
+<input type="number" id="volumeThreshold" value="3" step="0.5">
+</div>
+<div class="param-item">
+<label>4h涨跌幅阈值(%)</label>
+<input type="number" id="priceThreshold" value="8" step="1">
+</div>
+<div class="param-item">
+<label>风险回报比(止盈:止损)</label>
+<input type="number" id="riskRewardRatio" value="2" step="0.5" min="1">
+</div>
+<div class="param-item">
+<label>交易所</label>
+<select id="exchangeFilter">
+<option value="all">全部</option>
+<option value="binance">Binance</option>
+<option value="okx">OKX</option>
+</select>
+</div>
+<div class="param-item">
+<label>信号方向</label>
+<select id="directionFilter">
+<option value="all">全部方向</option>
+<option value="long">做多</option>
+<option value="short">做空</option>
+</select>
+</div>
+<button id="scanBtn">开始扫描</button>
+<button id="autoScanBtn">自动扫描: 关闭</button>
+</div>
+<div class="status-line">
+<span><span class="status-dot" id="statusDot"></span>状态: <b id="statusText">待启动</b></span>
+<span>候选币种: <b id="candidateCount">-</b></span>
+<span>命中信号: <b id="signalCount">-</b></span>
+<span>🔥强信号: <b id="strongCount">-</b></span>
+<span>⚡异动: <b id="activeCount">-</b></span>
+<span>💎埋伏: <b id="ambushCount">-</b></span>
+<span>下次自动扫描: <b id="countdown">-</b></span>
+</div>
+</div>
+<div class="panel highlight" style="padding:0;">
+<div class="section-title">🎯 命中信号(点击卡片看完整策略)</div>
+<div class="signal-grid" id="signalGrid">
+<div class="empty-state" style="grid-column:1/-1;">还没有扫描结果</div>
+</div>
+</div>
+<div class="panel" style="padding:0;">
+<div class="section-title dim">全部候选币种</div>
+<div class="table-wrap scrollable">
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>币种</th>
+<th>交易所</th>
+<th>24h涨跌</th>
+<th>放量倍数</th>
+<th>分级</th>
+<th>评分</th>
+</tr>
+</thead>
+<tbody id="tableBody">
+<tr><td colspan="7" class="empty-state">点击「开始扫描」拉取数据</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="panel" style="padding:0;">
+<div class="section-title dim">妖币历史记录(持久保存,含首次出现时间)</div>
+<div class="history-actions">
+<button id="clearHistoryBtn">清空历史</button>
+</div>
+<div class="history-wrap">
+<table>
+<thead>
+<tr>
+<th>币种</th>
+<th>方向</th>
+<th>首次出现时间</th>
+<th>最近一次出现</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody id="historyBody">
+<tr><td colspan="5" class="empty-state">还没有历史记录</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+<footer>数据来源: Binance 合约公开接口(行情/K线/OI/资金费率) · 学习用途</footer>
+<script>
+const MAJORS = new Set(['BTC','ETH','BNB','SOL','XRP','ADA','DOGE','TRX','TON','USDC','USDT','FDUSD','DAI','WBTC','STETH']);
+const CANDIDATE_LIMIT = 100; // 每个交易所初筛后进一步分析的候选数量上限,控制API请求量
+const KLINE_LIMIT = 25; // 拉取25根1小时K线(用于算均量/4h涨跌)
+let latestResults = [];
+let isScanning = false;
+let autoScanEnabled = false;
+let countdownValue = 0;
+const AUTO_SCAN_SECONDS = 30;
+const signalFirstSeen = new Map(); // symbol -> 首次出现该信号的时间戳,用于算持续时长(仅本次页面会话有效),key带交易所前缀避免同名冲突
+const FETCH_TIMEOUT_MS = 6000; // 单个请求超时时间,避免个别慢请求拖慢整批扫描
+const HISTORY_KEY = 'yaobi_history_v1';
+let historyMap = loadHistory(); // symbol -> {symbol, base, direction, firstSeen, lastSeen}
+let exchangeFilter = 'all'; // all | binance | okx
+let directionFilter = 'all'; // all | long | short
+// 分级阈值:分数越高信号越强,同时结合资金费率极端程度和OI真实性做细分
+const TIER_STRONG_SCORE = 55;
+const TIER_ACTIVE_SCORE = 35;
+const FUNDING_SHORT_CROWDED_ANNUALIZED = -80; // 年化资金费率低于此值,视为空头拥挤,潜在轧空
+
+function loadHistory(){
+  try{
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if(!raw) return new Map();
+    const arr = JSON.parse(raw);
+    return new Map(arr.map(item => [item.symbol, item]));
+  }catch(e){
+    return new Map();
+  }
+}
+
+function saveHistory(){
+  try{
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(Array.from(historyMap.values())));
+  }catch(e){
+    // 存储失败(比如隐私模式禁用localStorage)时静默忽略,不影响主流程
+  }
+}
+
+// 把本轮命中的妖币写入历史记录:第一次出现记下firstSeen,之后每次出现都更新lastSeen
+function recordHistory(signals){
+  const now = Date.now();
+  signals.forEach(r => {
+    const direction = r.strategy?.direction || (r.priceChange4h >= 0 ? 'long' : 'short');
+    if(historyMap.has(r.symbol)){
+      const item = historyMap.get(r.symbol);
+      item.lastSeen = now;
+      item.direction = direction;
+    }else{
+      historyMap.set(r.symbol, { symbol: r.symbol, base: r.base, direction, firstSeen: now, lastSeen: now });
+    }
+  });
+  saveHistory();
+}
+
+function renderHistory(){
+  const body = document.getElementById('historyBody');
+  const items = Array.from(historyMap.values()).sort((a,b) => b.firstSeen - a.firstSeen);
+  if(items.length === 0){
+    body.innerHTML = '<tr><td colspan="5" class="empty-state">还没有历史记录</td></tr>';
+    return;
+  }
+  const activeSymbols = new Set(latestResults.filter(r => r.isSignal).map(r => r.symbol));
+  body.innerHTML = items.map(item => {
+    const isActive = activeSymbols.has(item.symbol);
+    const dirLabel = item.direction === 'short' ? '<span class="down">🔽空</span>' : '<span class="up">🔼多</span>';
+    return `
+      <tr>
+        <td>${item.base}</td>
+        <td>${dirLabel}</td>
+        <td>${formatDateTime(item.firstSeen)}</td>
+        <td>${formatDateTime(item.lastSeen)}</td>
+        <td>${isActive ? '进行中' : '已消失'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function formatDateTime(ts){
+  if(!ts) return '-';
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// 带超时保护的fetch:超过FETCH_TIMEOUT_MS自动中止,视为该请求失败
+async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try{
+    return await fetch(url, { signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function scanMarket(){
+  if(isScanning){
+    // 上一轮还没跑完,本轮自动扫描跳过,避免请求叠加
+    return;
+  }
+  isScanning = true;
+  const scanBtn = document.getElementById('scanBtn');
+  const statusText = document.getElementById('statusText');
+  const statusDot = document.getElementById('statusDot');
+  const tableBody = document.getElementById('tableBody');
+  const minVolume = parseFloat(document.getElementById('minVolume').value) || 0;
+  const volumeThreshold = parseFloat(document.getElementById('volumeThreshold').value) || 3;
+  const priceThreshold = parseFloat(document.getElementById('priceThreshold').value) || 8;
+  const riskRewardRatio = parseFloat(document.getElementById('riskRewardRatio').value) || 2;
+  scanBtn.disabled = true;
+  statusDot.classList.add('live');
+  statusText.textContent = '拉取全市场行情...';
+  try{
+    let candidates = [];
+    // 第一步(Binance):拿现货交易对集合(用于剔除"有现货"的币),再拉合约行情做初筛
+    if(exchangeFilter === 'all' || exchangeFilter === 'binance'){
+      statusText.textContent = '拉取 Binance 行情...';
+      const [spotRes, futuresRes] = await Promise.all([
+        fetchWithTimeout('https://api.binance.com/api/v3/exchangeInfo'),
+        fetchWithTimeout('https://fapi.binance.com/fapi/v1/ticker/24hr')
+      ]);
+      if(spotRes.ok && futuresRes.ok){
+        const spotInfo = await spotRes.json();
+        const spotSymbols = new Set(
+          spotInfo.symbols
+            .filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT')
+            .map(s => s.symbol)
+        );
+        const allFuturesTickers = await futuresRes.json();
+        let binanceCandidates = allFuturesTickers.filter(t => {
+          if(!t.symbol.endsWith('USDT')) return false;
+          if(spotSymbols.has(t.symbol)) return false; // 剔除同时有现货交易对的币
+          const base = t.symbol.replace('USDT','');
+          if(MAJORS.has(base)) return false;
+          if(parseFloat(t.quoteVolume) < minVolume) return false;
+          return true;
+        });
+        binanceCandidates.sort((a,b) => Math.abs(parseFloat(b.priceChangePercent)) - Math.abs(parseFloat(a.priceChangePercent)));
+        binanceCandidates = binanceCandidates.slice(0, CANDIDATE_LIMIT).map(t => ({ t, exchange: 'binance' }));
+        candidates = candidates.concat(binanceCandidates);
+      }
+    }
+    // 第二步(OKX):拉永续合约行情做初筛,逻辑和Binance对齐
+    if(exchangeFilter === 'all' || exchangeFilter === 'okx'){
+      statusText.textContent = '拉取 OKX 行情...';
+      const okxTickers = await fetchOKXTickers();
+      let okxCandidates = okxTickers.filter(t => {
+        if(!t.instId.endsWith('-USDT-SWAP')) return false;
+        const base = t.instId.split('-')[0];
+        if(MAJORS.has(base)) return false;
+        const quoteVol = parseFloat(t.volCcy24h) * parseFloat(t.last); // volCcy24h是标的币数量,乘价格估算USDT成交额
+        if(quoteVol < minVolume) return false;
+        const open = parseFloat(t.open24h);
+        const changePct = open ? Math.abs((parseFloat(t.last) - open) / open) * 100 : 0;
+        t._changePct = changePct;
+        return true;
+      });
+      okxCandidates.sort((a,b) => b._changePct - a._changePct);
+      okxCandidates = okxCandidates.slice(0, CANDIDATE_LIMIT).map(t => ({ t, exchange: 'okx' }));
+      candidates = candidates.concat(okxCandidates);
+    }
+    document.getElementById('candidateCount').textContent = candidates.length;
+    statusText.textContent = `分析K线中 0/${candidates.length}`;
+    // 第三步:对候选币种逐个拉K线+OI历史+资金费率(限制并发数,避免触发限频)
+    const results = [];
+    const concurrency = 12; // 加了超时保护后可以适当调高并发
+    let completed = 0;
+    for(let i = 0; i < candidates.length; i += concurrency){
+      const batch = candidates.slice(i, i + concurrency);
+      const batchResults = await Promise.allSettled(batch.map(c => c.exchange === 'okx' ? analyzeOKXCoin(c.t) : analyzeCoin(c.t)));
+      batchResults.forEach(r => {
+        if(r.status === 'fulfilled' && r.value) results.push(r.value);
+      });
+      completed += batch.length;
+      statusText.textContent = `分析K线中 ${Math.min(completed, candidates.length)}/${candidates.length}`;
+      if(i + concurrency < candidates.length) await sleep(80); // 稍微错峰,避免瞬间并发过高
+    }
+    // 打分排序(内部也会顺带完成分级 classifyTier)
+    results.forEach(r => scoreCoin(r, volumeThreshold, priceThreshold));
+    results.filter(r => r.isSignal).forEach(r => generateStrategy(r, riskRewardRatio));
+    // 追踪信号持续时间:key带上交易所前缀,避免同名币种跨交易所互相覆盖
+    const currentSignalKeys = new Set(results.filter(r => r.isSignal).map(r => `${r.exchange}:${r.symbol}`));
+    for(const key of signalFirstSeen.keys()){
+      if(!currentSignalKeys.has(key)) signalFirstSeen.delete(key);
+    }
+    results.forEach(r => {
+      if(r.isSignal){
+        const key = `${r.exchange}:${r.symbol}`;
+        if(!signalFirstSeen.has(key)) signalFirstSeen.set(key, Date.now());
+        r.signalSince = signalFirstSeen.get(key);
+        r.signalDurationMs = Date.now() - r.signalSince;
+      }
+    });
+    results.sort((a,b) => b.score - a.score);
+    latestResults = results;
+    const signalCount = results.filter(r => r.isSignal).length;
+    document.getElementById('signalCount').textContent = signalCount;
+    document.getElementById('strongCount').textContent = results.filter(r => r.tier === 'strong').length;
+    document.getElementById('activeCount').textContent = results.filter(r => r.tier === 'active').length;
+    document.getElementById('ambushCount').textContent = results.filter(r => r.tier === 'ambush').length;
+    statusText.textContent = '扫描完成';
+    recordHistory(results.filter(r => r.isSignal));
+    renderSignalList(results);
+    renderTable(results);
+    renderHistory();
+  }catch(err){
+    statusText.textContent = `扫描失败: ${err.message}`;
+  }finally{
+    scanBtn.disabled = false;
+    statusDot.classList.remove('live');
+    isScanning = false;
+  }
+}
+
+function toggleAutoScan(){
+  autoScanEnabled = !autoScanEnabled;
+  const btn = document.getElementById('autoScanBtn');
+  btn.textContent = `自动扫描: ${autoScanEnabled ? '开启' : '关闭'}`;
+  btn.classList.toggle('active', autoScanEnabled);
+  if(autoScanEnabled){
+    countdownValue = AUTO_SCAN_SECONDS;
+    updateCountdownDisplay();
+  }else{
+    document.getElementById('countdown').textContent = '-';
+  }
+}
+
+function updateCountdownDisplay(){
+  document.getElementById('countdown').textContent = autoScanEnabled ? `${countdownValue}s` : '-';
+}
+
+// 每秒跑一次倒计时,到0就触发扫描(若上一轮还没结束,scanMarket内部会自动跳过)
+setInterval(() => {
+  if(!autoScanEnabled) return;
+  countdownValue--;
+  if(countdownValue <= 0){
+    countdownValue = AUTO_SCAN_SECONDS;
+    scanMarket();
+  }
+  updateCountdownDisplay();
+}, 1000);
+
+async function fetchOIHistory(symbol){
+  try{
+    const res = await fetchWithTimeout(`https://fapi.binance.com/futures/data/openInterestHist?symbol=${symbol}&period=1h&limit=${KLINE_LIMIT}`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    if(!data || data.length < 6) return null; // 数据不足,视为不可用
+    return data;
+  }catch(e){
+    return null; // 部分小币种可能没有OI历史,或请求超时,静默跳过,不影响主流程
+  }
+}
+
+async function fetchFundingRate(symbol){
+  try{
+    const res = await fetchWithTimeout(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`);
+    if(!res.ok) return null;
+    return await res.json();
+  }catch(e){
+    return null; // 同上,静默跳过
+  }
+}
+
+async function analyzeCoin(ticker){
+  const symbol = ticker.symbol;
+  const [klineRes, oiHist, fundingData] = await Promise.all([
+    fetchWithTimeout(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1h&limit=${KLINE_LIMIT}`),
+    fetchOIHistory(symbol),
+    fetchFundingRate(symbol)
+  ]);
+  if(!klineRes.ok) return null;
+  const klines = await klineRes.json();
+  if(!klines || klines.length < 6) return null; // 数据不足,跳过(新币冷启动问题)
+  const closes = klines.map(k => parseFloat(k[4]));
+  const highs = klines.map(k => parseFloat(k[2]));
+  const lows = klines.map(k => parseFloat(k[3]));
+  const volumes = klines.map(k => parseFloat(k[5]));
+  const latestVolume = volumes[volumes.length - 1];
+  const baselineVolumes = volumes.slice(0, volumes.length - 1);
+  const avgVolume = baselineVolumes.reduce((a,b) => a+b, 0) / baselineVolumes.length;
+  const volumeRatio = avgVolume > 0 ? latestVolume / avgVolume : 0;
+  const lastClose = closes[closes.length - 1];
+  const close1hAgo = closes[closes.length - 2];
+  const close4hAgo = closes[Math.max(0, closes.length - 5)];
+  const priceChange1h = close1hAgo ? ((lastClose - close1hAgo) / close1hAgo) * 100 : 0;
+  const priceChange4h = close4hAgo ? ((lastClose - close4hAgo) / close4hAgo) * 100 : 0;
+  // OI(未平仓合约量)4小时变化,用于验证价格波动背后是否有真实资金进场
+  let oiChange4h = null;
+  if(oiHist){
+    const oiValues = oiHist.map(o => parseFloat(o.sumOpenInterest));
+    const latestOI = oiValues[oiValues.length - 1];
+    const oi4hAgo = oiValues[Math.max(0, oiValues.length - 5)];
+    oiChange4h = oi4hAgo ? ((latestOI - oi4hAgo) / oi4hAgo) * 100 : null;
+  }
+  // 资金费率,换算成年化百分比方便判断拥挤程度(每8小时结算一次,一天3次)
+  let fundingRatePercent = null;
+  let fundingAnnualized = null;
+  if(fundingData && fundingData.lastFundingRate !== undefined){
+    fundingRatePercent = parseFloat(fundingData.lastFundingRate) * 100;
+    fundingAnnualized = fundingRatePercent * 3 * 365;
+  }
+  return {
+    symbol,
+    exchange: 'binance',
+    base: symbol.replace('USDT',''),
+    price: lastClose,
+    priceChange24h: parseFloat(ticker.priceChangePercent),
+    volumeRatio,
+    priceChange1h,
+    priceChange4h,
+    oiChange4h,
+    fundingRatePercent,
+    fundingAnnualized,
+    closes,
+    highs,
+    lows,
+    directionConsistent: Math.sign(priceChange1h) !== 0 && Math.sign(priceChange1h) === Math.sign(priceChange4h)
+  };
+}
+
+async function fetchOKXTickers(){
+  try{
+    const res = await fetchWithTimeout('https://www.okx.com/api/v5/market/tickers?instType=SWAP');
+    if(!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  }catch(e){
+    return []; // OKX接口不可用时,直接跳过OKX数据源,不影响Binance那一路继续跑
+  }
+}
+
+async function fetchOKXOIHistory(base){
+  try{
+    const res = await fetchWithTimeout(`https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=${base}&period=1H`);
+    if(!res.ok) return null;
+    const json = await res.json();
+    if(!json.data || json.data.length < 6) return null; // 该接口只覆盖部分主流币种,小币种大概率没有数据
+    return json.data; // 每项: [ts, oi(张), vol(张)],时间从新到旧排列
+  }catch(e){
+    return null;
+  }
+}
+
+async function fetchOKXFundingRate(instId){
+  try{
+    const res = await fetchWithTimeout(`https://www.okx.com/api/v5/public/funding-rate?instId=${instId}`);
+    if(!res.ok) return null;
+    const json = await res.json();
+    return json.data && json.data[0] ? json.data[0] : null;
+  }catch(e){
+    return null;
+  }
+}
+
+async function analyzeOKXCoin(ticker){
+  const instId = ticker.instId; // 形如 DOGE-USDT-SWAP
+  const base = instId.split('-')[0];
+  const [klineRes, oiHist, fundingData] = await Promise.all([
+    fetchWithTimeout(`https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=1H&limit=${KLINE_LIMIT}`),
+    fetchOKXOIHistory(base),
+    fetchOKXFundingRate(instId)
+  ]);
+  if(!klineRes.ok) return null;
+  const klineJson = await klineRes.json();
+  const klines = (klineJson.data || []).slice().reverse(); // OKX返回从新到旧,反转成从旧到新,和Binance保持一致
+  if(!klines || klines.length < 6) return null;
+  const closes = klines.map(k => parseFloat(k[4]));
+  const highs = klines.map(k => parseFloat(k[2]));
+  const lows = klines.map(k => parseFloat(k[3]));
+  const volumes = klines.map(k => parseFloat(k[5]));
+  const latestVolume = volumes[volumes.length - 1];
+  const baselineVolumes = volumes.slice(0, volumes.length - 1);
+  const avgVolume = baselineVolumes.reduce((a,b) => a+b, 0) / baselineVolumes.length;
+  const volumeRatio = avgVolume > 0 ? latestVolume / avgVolume : 0;
+  const lastClose = closes[closes.length - 1];
+  const close1hAgo = closes[closes.length - 2];
+  const close4hAgo = closes[Math.max(0, closes.length - 5)];
+  const priceChange1h = close1hAgo ? ((lastClose - close1hAgo) / close1hAgo) * 100 : 0;
+  const priceChange4h = close4hAgo ? ((lastClose - close4hAgo) / close4hAgo) * 100 : 0;
+  let oiChange4h = null;
+  if(oiHist){
+    const oiValues = oiHist.map(o => parseFloat(o[1])).reverse(); // 反转成从旧到新
+    const latestOI = oiValues[oiValues.length - 1];
+    const oi4hAgo = oiValues[Math.max(0, oiValues.length - 5)];
+    oiChange4h = oi4hAgo ? ((latestOI - oi4hAgo) / oi4hAgo) * 100 : null;
+  }
+  let fundingRatePercent = null;
+  let fundingAnnualized = null;
+  if(fundingData && fundingData.fundingRate !== undefined){
+    fundingRatePercent = parseFloat(fundingData.fundingRate) * 100;
+    fundingAnnualized = fundingRatePercent * 3 * 365; // OKX资金费率同样按8小时一次估算年化
+  }
+  const priceChange24h = ticker.open24h ? ((parseFloat(ticker.last) - parseFloat(ticker.open24h)) / parseFloat(ticker.open24h)) * 100 : 0;
+  return {
+    symbol: instId,
+    exchange: 'okx',
+    base,
+    price: lastClose,
+    priceChange24h,
+    volumeRatio,
+    priceChange1h,
+    priceChange4h,
+    oiChange4h,
+    fundingRatePercent,
+    fundingAnnualized,
+    closes,
+    highs,
+    lows,
+    directionConsistent: Math.sign(priceChange1h) !== 0 && Math.sign(priceChange1h) === Math.sign(priceChange4h)
+  };
+}
+
+const FUNDING_EXTREME_ANNUALIZED = 100; // 年化资金费率超过±100%视为极端拥挤
+function scoreCoin(coin, volumeThreshold, priceThreshold){
+  const volumeHit = coin.volumeRatio >= volumeThreshold;
+  const priceHit = Math.abs(coin.priceChange4h) >= priceThreshold;
+  const directionHit = coin.directionConsistent;
+  const oiAvailable = coin.oiChange4h !== null && coin.oiChange4h !== undefined;
+  const oiHit = oiAvailable && Math.sign(coin.oiChange4h) !== 0 && Math.sign(coin.oiChange4h) === Math.sign(coin.priceChange4h);
+  // OI数据缺失时不作为否决条件(很多小币种没有历史OI),但可用时必须方向一致才算真信号
+  coin.isSignal = volumeHit && priceHit && directionHit && (!oiAvailable || oiHit);
+  // 打分:量能45% + 价格35% + 方向一致10% + OI一致10%(数据缺失给中性分,不做过度惩罚)
+  const volumeComponent = Math.min(1, coin.volumeRatio / volumeThreshold) * 45;
+  const priceComponent = Math.min(1, Math.abs(coin.priceChange4h) / priceThreshold) * 35;
+  const directionComponent = directionHit ? 10 : 0;
+  const oiComponent = oiAvailable ? (oiHit ? 10 : 0) : 5;
+  coin.score = Math.round(volumeComponent + priceComponent + directionComponent + oiComponent);
+  coin.volumeHit = volumeHit;
+  coin.priceHit = priceHit;
+  coin.directionHit = directionHit;
+  coin.oiAvailable = oiAvailable;
+  coin.oiHit = oiHit;
+  // 资金费率风险标注,只作提示,不影响是否命中信号
+  coin.fundingRiskLevel = null;
+  if(coin.fundingAnnualized !== null){
+    if(coin.fundingAnnualized > FUNDING_EXTREME_ANNUALIZED) coin.fundingRiskLevel = 'long_crowded';
+    else if(coin.fundingAnnualized < -FUNDING_EXTREME_ANNUALIZED) coin.fundingRiskLevel = 'short_crowded';
+  }
+  classifyTier(coin);
+}
+
+// 信号分级:结合评分高低和资金费率/OI的极端程度,把候选币种分成四档,方便一眼看出该重点盯哪些
+function classifyTier(coin){
+  const oiRising = coin.oiAvailable && coin.oiChange4h > 0;
+  const shortCrowded = coin.fundingAnnualized !== null && coin.fundingAnnualized < FUNDING_SHORT_CROWDED_ANNUALIZED;
+  if(coin.score >= TIER_STRONG_SCORE){
+    coin.tier = 'strong'; // 🔥强信号:评分高,量价OI三者共振明显
+  }else if(coin.score >= TIER_ACTIVE_SCORE){
+    coin.tier = 'active'; // ⚡异动:评分中等,趋势正在形成但还没完全走出来
+  }else if(shortCrowded && oiRising){
+    coin.tier = 'ambush'; // 💎埋伏:资金费率深度为负(空头付钱给多头)且持仓在增加,可能有资金在逆向建仓
+  }else{
+    coin.tier = 'watch'; // 💤观望:数据不明确,暂不重点关注
+  }
+  // 操作建议方向:不等于"信号"本身,是给命中信号的币种一个大致的多空参考
+  if(!coin.isSignal){
+    coin.adviceDirection = 'neutral';
+  }else if(coin.priceChange4h >= 0 && coin.fundingRiskLevel !== 'long_crowded'){
+    coin.adviceDirection = 'long';
+  }else if(coin.fundingRiskLevel === 'long_crowded' || (coin.priceChange4h < 0 && coin.oiAvailable && coin.oiChange4h < 0)){
+    coin.adviceDirection = 'short';
+  }else{
+    coin.adviceDirection = 'neutral';
+  }
+  // 追高提示:价格已经处在近期高点附近,而且是多头信号时,提醒一下性价比可能不高
+  const recentHigh = Math.max(...coin.highs);
+  coin.chasingRisk = coin.adviceDirection === 'long' && coin.price >= recentHigh * 0.98;
+}
+
+const ATR_PERIOD = 14;
+const BREAKOUT_LOOKBACK = 20;
+const ATR_STOP_MULTIPLIER = 1.5;
+// 简化版ATR:近N根K线真实波幅(True Range)的平均值,衡量这个币"正常情况下"波动多大
+function calcATR(highs, lows, closes, period){
+  const trueRanges = [];
+  for(let i = 1; i < closes.length; i++){
+    const highLow = highs[i] - lows[i];
+    const highPrevClose = Math.abs(highs[i] - closes[i-1]);
+    const lowPrevClose = Math.abs(lows[i] - closes[i-1]);
+    trueRanges.push(Math.max(highLow, highPrevClose, lowPrevClose));
+  }
+  const window = trueRanges.slice(-period);
+  if(window.length === 0) return null;
+  return window.reduce((a,b) => a+b, 0) / window.length;
+}
+
+// 只给命中信号的币种生成策略,规则透明、基于该币自身波动率,不是拍脑袋定百分比
+function generateStrategy(coin, riskRewardRatio){
+  const atr = calcATR(coin.highs, coin.lows, coin.closes, ATR_PERIOD);
+  if(!atr || atr <= 0){
+    coin.strategy = null; // 波动率算不出来,不给策略,避免用失真数据误导
+    return;
+  }
+  const isLong = coin.priceChange4h >= 0;
+  const lookbackHighs = coin.highs.slice(-BREAKOUT_LOOKBACK - 1, -1);
+  const lookbackLows = coin.lows.slice(-BREAKOUT_LOOKBACK - 1, -1);
+  const lastClose = coin.price;
+  // 三档止盈:TP1更保守(可以先落袋一部分),TP2是主目标(风险回报比),TP3更激进
+  const tp1Mult = Math.max(0.5, riskRewardRatio / 2);
+  const tp2Mult = riskRewardRatio;
+  const tp3Mult = riskRewardRatio * 1.5;
+  let direction, refLevel, hasBrokenOut, entryPrice, stopLoss, riskDistance;
+  let takeProfit1, takeProfit2, takeProfit3;
+  if(isLong){
+    direction = 'long';
+    refLevel = Math.max(...lookbackHighs);
+    hasBrokenOut = lastClose >= refLevel;
+    entryPrice = hasBrokenOut ? lastClose : refLevel;
+    stopLoss = entryPrice - ATR_STOP_MULTIPLIER * atr;
+    riskDistance = entryPrice - stopLoss;
+    takeProfit1 = entryPrice + riskDistance * tp1Mult;
+    takeProfit2 = entryPrice + riskDistance * tp2Mult;
+    takeProfit3 = entryPrice + riskDistance * tp3Mult;
+  }else{
+    direction = 'short';
+    refLevel = Math.min(...lookbackLows);
+    hasBrokenOut = lastClose <= refLevel;
+    entryPrice = hasBrokenOut ? lastClose : refLevel;
+    stopLoss = entryPrice + ATR_STOP_MULTIPLIER * atr;
+    riskDistance = stopLoss - entryPrice;
+    takeProfit1 = entryPrice - riskDistance * tp1Mult;
+    takeProfit2 = entryPrice - riskDistance * tp2Mult;
+    takeProfit3 = entryPrice - riskDistance * tp3Mult;
+  }
+  coin.strategy = { direction, refLevel, hasBrokenOut, entryPrice, stopLoss, takeProfit1, takeProfit2, takeProfit3, atr };
+}
+
+function buildDetailContent(r){
+  return `
+    <div class="metrics">
+      <div>当前价格<b>$${formatPrice(r.price)}</b></div>
+      <div>1h涨跌<b class="${r.priceChange1h>=0?'up':'down'}">${r.priceChange1h.toFixed(2)}%</b></div>
+      <div>4h涨跌<b class="${r.priceChange4h>=0?'up':'down'}">${r.priceChange4h.toFixed(2)}%</b></div>
+      <div>放量倍数<b>${r.volumeRatio.toFixed(2)}x</b></div>
+      <div>OI 4h变化<b class="${r.oiAvailable ? (r.oiChange4h>=0?'up':'down') : ''}">${r.oiAvailable ? r.oiChange4h.toFixed(2)+'%' : '无数据'}</b></div>
+      <div>资金费率(年化)<b class="${r.fundingAnnualized!==null ? (r.fundingAnnualized>=0?'up':'down') : ''}">${r.fundingAnnualized!==null ? r.fundingAnnualized.toFixed(1)+'%' : '无数据'}</b></div>
+    </div>
+    ${r.fundingRiskLevel === 'long_crowded' ? '<div style="color:var(--amber);margin-bottom:10px;">⚠️ 资金费率偏高,多头拥挤,注意反转/多头挤仓风险</div>' : ''}
+    ${r.fundingRiskLevel === 'short_crowded' ? '<div style="color:var(--amber);margin-bottom:10px;">⚠️ 资金费率大幅为负,空头拥挤,注意逼空风险</div>' : ''}
+    ${!r.oiAvailable ? '<div style="margin-bottom:10px;">该币种暂无OI历史数据,真实性验证维度按中性分处理</div>' : ''}
+    ${renderStrategy(r.strategy)}
+    ${renderSparkline(r.closes)}
+  `;
+}
+
+function attachRowHandlers(containerId){
+  document.querySelectorAll(`#${containerId} .signal-row`).forEach(row => {
+    row.addEventListener('click', () => {
+      document.getElementById(row.dataset.target).classList.toggle('open');
+    });
+  });
+}
+
+function renderSignalList(results){
+  const grid = document.getElementById('signalGrid');
+  let signals = results.filter(r => r.isSignal);
+  if(directionFilter !== 'all') signals = signals.filter(r => r.adviceDirection === directionFilter);
+  if(signals.length === 0){
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">本轮没有命中信号的币种,可以试试调低阈值,或者等下一轮扫描</div>';
+    return;
+  }
+  grid.innerHTML = signals.map((r, idx) => buildSignalCard(r, `sig-${idx}`)).join('');
+  attachCardHandlers();
+}
+
+const TIER_LABEL = { strong: '🔥强信号', active: '⚡异动', ambush: '💎埋伏', watch: '💤观望' };
+function buildSignalCard(r, uid){
+  const isLong = r.strategy?.direction !== 'short';
+  const cls24h = r.priceChange24h >= 0 ? 'up' : 'down';
+  const s = r.strategy;
+  return `
+    <div class="signal-card ${isLong ? '' : 'short'}" data-target="detail-${uid}">
+      <div class="card-top">
+        <div class="card-symbol">${r.base}<span class="dir-tag ${isLong ? 'up' : 'down'}">${isLong ? '🔼多' : '🔽空'}</span></div>
+        <div class="card-score">评分 ${r.score}</div>
+      </div>
+      <div class="card-badges">
+        <span class="badge tier-${r.tier}">${TIER_LABEL[r.tier]}</span>
+        <span class="badge">${r.exchange === 'okx' ? 'OKX' : 'Binance'}</span>
+        ${r.chasingRisk ? '<span class="badge risk">⚠追高</span>' : ''}
+      </div>
+      <div class="card-stats">
+        <div><span>24h涨跌</span><b class="${cls24h}">${r.priceChange24h >= 0 ? '+' : ''}${r.priceChange24h.toFixed(1)}%</b></div>
+        <div><span>放量</span><b>${r.volumeRatio.toFixed(1)}x</b></div>
+        <div><span>持续</span><b>${formatDuration(r.signalDurationMs)}</b></div>
+      </div>
+      ${s ? `
+      <div class="card-strategy">
+        <div><span>进场</span><b>$${formatPrice(s.entryPrice)}</b></div>
+        <div><span>止损</span><b class="down">$${formatPrice(s.stopLoss)}</b></div>
+        <div><span>止盈1</span><b class="up">$${formatPrice(s.takeProfit1)}</b></div>
+      </div>` : '<div class="card-strategy-na">波动率数据不足,暂无策略参考</div>'}
+      <div class="card-badges">
+        ${r.fundingRiskLevel ? '<span class="badge risk">⚠资金拥挤</span>' : ''}
+        ${!r.oiAvailable ? '<span class="badge na">OI无数据</span>' : ''}
+      </div>
+      <div class="card-hint">点击查看完整策略与走势图 ▾</div>
+      <div class="detail" id="detail-${uid}">${buildDetailContent(r)}</div>
+    </div>
+  `;
+}
+
+function attachCardHandlers(){
+  document.querySelectorAll('#signalGrid .signal-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.getElementById(card.dataset.target).classList.toggle('open');
+      card.classList.toggle('expanded');
+    });
+  });
+}
+
+function renderTable(results){
+  const tableBody = document.getElementById('tableBody');
+  let rows = results;
+  if(directionFilter !== 'all') rows = rows.filter(r => r.adviceDirection === directionFilter);
+  if(rows.length === 0){
+    tableBody.innerHTML = '<tr><td colspan="7" class="empty-state">没有符合条件的候选币种,试试调低阈值</td></tr>';
+    return;
+  }
+  tableBody.innerHTML = rows.map((r, idx) => {
+    const uid = `all-${idx}`;
+    const cls24h = r.priceChange24h >= 0 ? 'up' : 'down';
+    return `
+      <tr class="signal-row" data-target="detail-${uid}">
+        <td>${idx + 1}</td>
+        <td>${r.base}${r.isSignal ? (r.strategy?.direction === 'short' ? ' 🎯🔽' : ' 🎯🔼') : ''}</td>
+        <td>${r.exchange === 'okx' ? 'OKX' : 'Binance'}</td>
+        <td class="${cls24h}">${r.priceChange24h >= 0 ? '+' : ''}${r.priceChange24h.toFixed(2)}%</td>
+        <td>${r.volumeRatio.toFixed(2)}x</td>
+        <td>
+          <span class="badge tier-${r.tier}">${TIER_LABEL[r.tier]}</span>
+          ${r.fundingRiskLevel ? '<span class="badge risk">⚠资金</span>' : ''}
+        </td>
+        <td>${r.score}<span class="score-bar"><span class="score-fill" style="width:${r.score}%"></span></span></td>
+      </tr>
+      <tr>
+        <td colspan="7" style="padding:0; border:none;">
+          <div class="detail" id="detail-${uid}">${buildDetailContent(r)}</div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  attachRowHandlers('tableBody');
+}
+
+function renderStrategy(strategy){
+  if(!strategy) return '';
+  const isLong = strategy.direction === 'long';
+  const label = isLong ? '做多参考' : '做空参考';
+  const cls = isLong ? '' : 'short';
+  return `
+    <div class="strategy-card ${cls}">
+      <h4>${label} ${strategy.hasBrokenOut ? '(已突破)' : '(等待突破)'}</h4>
+      <div class="strategy-row"><span>${strategy.hasBrokenOut ? '建议进场价' : '突破位(等价格到这里再进场)'}</span><span>$${formatPrice(strategy.entryPrice)}</span></div>
+      <div class="strategy-row"><span>止损价</span><span>$${formatPrice(strategy.stopLoss)}</span></div>
+      <div class="strategy-row"><span>止盈目标1(可先落袋部分仓位)</span><span>$${formatPrice(strategy.takeProfit1)}</span></div>
+      <div class="strategy-row"><span>止盈目标2(主目标)</span><span>$${formatPrice(strategy.takeProfit2)}</span></div>
+      <div class="strategy-row"><span>止盈目标3(激进目标)</span><span>$${formatPrice(strategy.takeProfit3)}</span></div>
+      <div class="strategy-row"><span>参考波动幅度(ATR)</span><span>$${formatPrice(strategy.atr)}</span></div>
+      <div class="strategy-note">
+        止损 = 进场价 ${isLong ? '−' : '+'} 1.5×ATR;三档止盈按你设置的风险回报比的0.5倍/1倍/1.5倍计算。
+        常见做法是分批止盈:到TP1先平部分仓位、止损移到成本价附近,剩余仓位再看TP2/TP3,而不是赌一个点位全平或全不平。
+        ${!strategy.hasBrokenOut ? '当前价格还没到突破位,这是"等待确认"的参考位,不代表现在就该进场。' : ''}
+        此策略基于历史规则计算,不构成投资建议,请结合自己的判断。
+      </div>
+    </div>
+  `;
+}
+
+function renderSparkline(closes){
+  const w = 300, h = 50;
+  const min = Math.min(...closes), max = Math.max(...closes);
+  const range = (max - min) || 1;
+  const points = closes.map((c, i) => {
+    const x = (i / (closes.length - 1)) * w;
+    const y = h - ((c - min) / range) * h;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const trendUp = closes[closes.length-1] >= closes[0];
+  const color = trendUp ? '#7fae8c' : '#b8756a';
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+}
+
+function formatDuration(ms){
+  if(ms == null) return '-';
+  const totalMinutes = Math.floor(ms / 60000);
+  if(totalMinutes < 1) return '刚出现';
+  if(totalMinutes < 60) return `${totalMinutes}分钟`;
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  return `${hours}小时${mins}分钟`;
+}
+
+function formatPrice(p){
+  if(p < 1) return p.toFixed(5);
+  return p.toLocaleString(undefined, {maximumFractionDigits: 4});
+}
+
+function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
+document.getElementById('scanBtn').addEventListener('click', scanMarket);
+document.getElementById('autoScanBtn').addEventListener('click', toggleAutoScan);
+document.getElementById('exchangeFilter').addEventListener('change', (e) => {
+  exchangeFilter = e.target.value; // 影响下一次扫描时拉取哪些交易所的数据
+});
+document.getElementById('directionFilter').addEventListener('change', (e) => {
+  directionFilter = e.target.value;
+  if(latestResults.length){
+    renderSignalList(latestResults); // 方向筛选只影响已有结果的展示,不需要重新扫描
+    renderTable(latestResults);
+  }
+});
+document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+  if(!confirm('确定要清空全部历史记录吗?此操作不可恢复。')) return;
+  historyMap.clear();
+  saveHistory();
+  renderHistory();
+});
+renderHistory(); // 页面加载时先把之前保存的历史记录显示出来
+</script>
+</body>
+</html>
