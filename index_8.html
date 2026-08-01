@@ -5,355 +5,358 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>妖币分析器 · 信号列表 + 分批止盈 + 持续时间</title>
 <style>
-  :root{
-    --bg: #060a09;
-    --panel: #0c1613;
-    --panel-hover: #101f1a;
-    --grid: #163a2d;
-    --phosphor: #3dffa0;
-    --alert: #ff5c5c;
-    --amber: #ffb454;
-    --text-dim: #6f9686;
-  }
-  * { box-sizing: border-box; }
-  body{
-    margin:0;
-    background:
-      radial-gradient(ellipse 800px 400px at 50% -10%, rgba(61,255,160,0.06), transparent),
-      var(--bg);
-    color:#d7f5e6;
-    font-family: 'IBM Plex Mono', 'Consolas', monospace;
-    min-height:100vh;
-  }
-  header{
-    padding: 24px 20px 14px;
-    border-bottom: 1px solid var(--grid);
-    position: sticky;
-    top: 0;
-    background: rgba(6,10,9,0.92);
-    backdrop-filter: blur(6px);
-    z-index: 10;
-  }
-  header h1{
-    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-    font-size: 1.4rem;
-    margin: 0 0 4px;
-    color: var(--phosphor);
-    text-shadow: 0 0 12px rgba(61,255,160,0.3);
-  }
-  header p{ margin:0; color: var(--text-dim); font-size: 0.82rem; }
-
-  .disclaimer{
-    background: rgba(255,180,84,0.08);
-    border: 1px solid rgba(255,180,84,0.3);
-    color: var(--amber);
-    font-size: 0.72rem;
-    padding: 8px 12px;
-    margin-top: 12px;
-    line-height: 1.5;
-  }
-
-  main{ max-width: 1000px; margin: 0 auto; padding: 20px; }
-
-  .panel{
-    background: var(--panel);
-    border: 1px solid var(--grid);
-    padding: 16px;
-    margin-bottom: 18px;
-  }
-
-  .params{
-    display:flex;
-    gap: 20px;
-    flex-wrap: wrap;
-  }
-  .param-item{
-    display:flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.75rem;
-    color: var(--text-dim);
-  }
-  .param-item input{
-    background: var(--bg);
-    border: 1px solid var(--grid);
-    color: var(--phosphor);
-    padding: 6px 8px;
-    width: 100px;
-    font-family: inherit;
-    transition: border-color 0.2s;
-  }
-  .param-item input:focus{ outline:none; border-color: var(--phosphor); }
-  button{
-    background: var(--panel);
-    border: 1px solid var(--grid);
-    color: var(--phosphor);
-    padding: 9px 18px;
-    font-family: inherit;
-    font-size: 0.8rem;
-    cursor: pointer;
-    align-self: flex-end;
-    transition: border-color 0.2s, background 0.2s;
-  }
-  button:hover{ border-color: var(--phosphor); background: var(--panel-hover); }
-  button:active{ transform: translateY(1px); }
-  button:disabled{ opacity: 0.4; cursor: not-allowed; }
-  button.active{ border-color: var(--phosphor); background: rgba(61,255,160,0.08); }
-
-  .status-line{
-    display:flex;
-    align-items: center;
-    gap: 18px;
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    margin-top: 12px;
-    flex-wrap: wrap;
-  }
-  .status-line b{ color: var(--phosphor); }
-  .status-dot{
-    display:inline-block;
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--text-dim);
-    margin-right: 6px;
-  }
-  .status-dot.live{
-    background: var(--phosphor);
-    animation: pulse 1.4s ease-in-out infinite;
-  }
-  @keyframes pulse{
-    0%, 100%{ opacity: 1; box-shadow: 0 0 0 0 rgba(61,255,160,0.5); }
-    50%{ opacity: 0.5; box-shadow: 0 0 0 4px rgba(61,255,160,0); }
-  }
-
-  .table-wrap{ overflow-x: auto; }
-  .table-wrap.scrollable{ max-height: 560px; overflow-y: auto; }
-  table{ width:100%; border-collapse: collapse; font-size: 0.82rem; }
-  th, td{ text-align:left; padding: 10px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
-  th{
-    color: var(--text-dim);
-    font-size: 0.7rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    position: sticky;
-    top: 0;
-    background: var(--panel);
-    z-index: 1;
-  }
-  tr.signal-row{ cursor: pointer; transition: background 0.15s; }
-  tr.signal-row:hover{ background: var(--panel-hover); }
-  td.up{ color: var(--phosphor); }
-  td.down{ color: var(--alert); }
-
-  .score-bar{
-    display:inline-block;
-    width: 60px;
-    height: 6px;
-    background: var(--grid);
-    position: relative;
-    vertical-align: middle;
-    margin-left: 6px;
-  }
-  .score-fill{ position:absolute; top:0; left:0; height:100%; background: var(--phosphor); }
-
-  .badge{
-    display:inline-block;
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    border: 1px solid var(--grid);
-    color: var(--text-dim);
-    margin-right: 4px;
-  }
-  .badge.hit{ color: var(--phosphor); border-color: var(--phosphor); }
-  .badge.na{ opacity: 0.4; border-style: dashed; }
-  .badge.risk{ color: var(--amber); border-color: var(--amber); }
-
-  .detail{
-    background: var(--bg);
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    max-height: 0;
-    overflow: hidden;
-    padding: 0 14px;
-    transition: max-height 0.35s ease, padding 0.35s ease;
-    white-space: normal;
-  }
-  .detail.open{ max-height: 900px; padding: 14px; }
-  .detail .metrics{ display:flex; gap: 24px; flex-wrap: wrap; margin-bottom: 10px; }
-  .detail .metrics div b{ color: var(--phosphor); display:block; font-size: 0.9rem; }
-
-  .strategy-card{
-    border: 1px solid var(--grid);
-    background: rgba(61,255,160,0.04);
-    padding: 12px;
-    margin-bottom: 12px;
-  }
-  .strategy-card.short{ background: rgba(255,92,92,0.04); }
-  .strategy-card h4{
-    margin: 0 0 8px;
-    font-size: 0.8rem;
-    color: var(--phosphor);
-    font-weight: 600;
-  }
-  .strategy-card.short h4{ color: var(--alert); }
-  .strategy-row{
-    display:flex;
-    justify-content: space-between;
-    font-size: 0.78rem;
-    padding: 4px 0;
-    border-bottom: 1px dashed var(--grid);
-  }
-  .strategy-row:last-child{ border-bottom: none; }
-  .strategy-row span:last-child{ color: #d7f5e6; font-weight: 600; }
-  .strategy-note{
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    margin-top: 8px;
-    line-height: 1.5;
-  }
-
-  .empty-state{ text-align:center; padding: 40px 20px; color: var(--text-dim); }
-  .section-title{
-    font-size: 0.85rem;
-    color: var(--phosphor);
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--grid);
-    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-  }
-  .section-title.dim{ color: var(--text-dim); }
-  .panel.highlight{
-    border-color: var(--phosphor);
-    box-shadow: 0 0 24px rgba(61,255,160,0.06);
-  }
-
-  .signal-grid{
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 12px;
-    padding: 16px;
-  }
-  .signal-card{
-    border: 1px solid var(--grid);
-    background: rgba(61,255,160,0.03);
-    padding: 12px;
-    cursor: pointer;
-    transition: border-color 0.2s, transform 0.15s;
-  }
-  .signal-card:hover{ border-color: var(--phosphor); transform: translateY(-2px); }
-  .signal-card.short{ background: rgba(255,92,92,0.03); }
-  .signal-card.short:hover{ border-color: var(--alert); }
-  .card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-  .card-symbol{ font-size:0.95rem; font-weight:600; color:#d7f5e6; }
-  .dir-tag{ font-size:0.7rem; margin-left:6px; }
-  .dir-tag.up{ color:var(--phosphor); }
-  .dir-tag.down{ color:var(--alert); }
-  .card-score{
-    font-size:0.75rem;
-    color:var(--phosphor);
-    border:1px solid var(--grid);
-    padding:2px 9px;
-    border-radius:12px;
-    white-space: nowrap;
-  }
-  .card-stats{ display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-dim); margin-bottom:10px; }
-  .card-stats div{ display:flex; flex-direction:column; gap:3px; }
-  .card-stats b{ color:#d7f5e6; font-size:0.82rem; font-weight:600; }
-  .card-strategy{
-    display:flex;
-    justify-content:space-between;
-    font-size:0.68rem;
-    color:var(--text-dim);
-    border-top: 1px dashed var(--grid);
-    padding-top: 10px;
-    margin-bottom: 8px;
-  }
-  .card-strategy div{ display:flex; flex-direction:column; gap:3px; }
-  .card-strategy b{ font-size:0.78rem; font-weight:600; }
-  .card-strategy-na{ font-size:0.7rem; color:var(--text-dim); padding:8px 0; border-top: 1px dashed var(--grid); }
-  .card-badges{ display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px; min-height: 20px; }
-  .card-hint{ font-size:0.62rem; color:var(--text-dim); text-align:center; opacity:0.7; }
-  .signal-card.expanded .card-hint{ display:none; }
-  .signal-card .detail{ margin-top: 4px; }
-  .signal-card .detail.open{ margin-top: 10px; }
-  footer{ text-align:center; color: var(--text-dim); font-size: 0.7rem; padding: 20px; }
+:root{
+  --bg: #0b0a10;
+  --panel: #15131d;
+  --panel-hover: #1c1926;
+  --grid: #7c3aed;
+  --phosphor: #ffffff;
+  --up: #4ade80;
+  --alert: #ff6b6b;
+  --amber: #ffb454;
+  --text-dim: #a1a1aa;
+}
+* { box-sizing: border-box; }
+body{
+  margin:0;
+  background: var(--bg);
+  color: var(--phosphor);
+  font-family: 'IBM Plex Mono', 'Consolas', monospace;
+  min-height:100vh;
+}
+header{
+  padding: 24px 20px 14px;
+  border-bottom: 1px solid var(--grid);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+header h1{
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  font-size: 1.4rem;
+  margin: 0 0 4px;
+  color: var(--phosphor);
+}
+header p{ margin:0; color: var(--text-dim); font-size: 0.82rem; }
+.disclaimer{
+  background: rgba(255,180,84,0.08);
+  border: 1px solid rgba(255,180,84,0.3);
+  color: var(--amber);
+  font-size: 0.72rem;
+  padding: 8px 12px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+main{ max-width: 1000px; margin: 0 auto; padding: 20px; }
+.panel{
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.params{
+  display:flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.param-item{
+  display:flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.param-item input{
+  background: var(--bg);
+  border: 1px solid var(--grid);
+  color: var(--phosphor);
+  padding: 6px 8px;
+  width: 100px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.param-item input:focus{ outline:none; border-color: var(--phosphor); }
+button{
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  color: var(--phosphor);
+  padding: 9px 18px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  align-self: flex-end;
+  transition: border-color 0.2s, background 0.2s;
+}
+button:hover{ border-color: var(--phosphor); background: var(--panel-hover); }
+button:active{ transform: translateY(1px); }
+button:disabled{ opacity: 0.4; cursor: not-allowed; }
+button.active{ border-color: var(--phosphor); background: rgba(61,255,160,0.08); }
+.status-line{
+  display:flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.status-line b{ color: var(--phosphor); }
+.status-dot{
+  display:inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  margin-right: 6px;
+}
+.status-dot.live{
+  background: var(--grid);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%, 100%{ opacity: 1; }
+  50%{ opacity: 0.4; }
+}
+.table-wrap{ overflow-x: auto; }
+.table-wrap.scrollable{ max-height: 560px; overflow-y: auto; }
+table{ width:100%; border-collapse: collapse; font-size: 0.82rem; }
+th, td{ text-align:left; padding: 10px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th{
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+}
+tr.signal-row{ cursor: pointer; transition: background 0.15s; }
+tr.signal-row:hover{ background: var(--panel-hover); }
+td.up{ color: var(--up); }
+td.down{ color: var(--alert); }
+.score-bar{
+  display:inline-block;
+  width: 60px;
+  height: 6px;
+  background: var(--grid);
+  opacity: 0.3;
+  position: relative;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.score-fill{ position:absolute; top:0; left:0; height:100%; background: var(--grid); opacity: 1; }
+.badge{
+  display:inline-block;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border: 1px solid var(--grid);
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+.badge.hit{ color: var(--phosphor); border-color: var(--grid); background: rgba(124,58,237,0.25); }
+.badge.na{ opacity: 0.4; border-style: dashed; }
+.badge.risk{ color: var(--amber); border-color: var(--amber); }
+.detail{
+  background: var(--bg);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 14px;
+  transition: max-height 0.35s ease, padding 0.35s ease;
+  white-space: normal;
+}
+.detail.open{ max-height: 900px; padding: 14px; }
+.detail .metrics{ display:flex; gap: 24px; flex-wrap: wrap; margin-bottom: 10px; }
+.detail .metrics div b{ color: var(--phosphor); display:block; font-size: 0.9rem; }
+.strategy-card{
+  border: 1px solid var(--grid);
+  background: rgba(124,58,237,0.06);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.strategy-card.short{ background: rgba(124,58,237,0.06); }
+.strategy-card h4{
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: var(--phosphor);
+  font-weight: 600;
+}
+.strategy-card.short h4{ color: var(--phosphor); }
+.strategy-row{
+  display:flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--grid);
+}
+.strategy-row:last-child{ border-bottom: none; }
+.strategy-row span:last-child{ color: var(--phosphor); font-weight: 600; }
+.strategy-note{
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.empty-state{ text-align:center; padding: 40px 20px; color: var(--text-dim); }
+.section-title{
+  font-size: 0.85rem;
+  color: var(--phosphor);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--grid);
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+}
+.section-title.dim{ color: var(--text-dim); }
+.panel.highlight{
+  border-color: var(--grid);
+}
+.signal-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+.signal-card{
+  border: 1px solid var(--grid);
+  background: var(--panel);
+  padding: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.signal-card:hover{ background: var(--panel-hover); }
+.signal-card.short{ background: var(--panel); }
+.signal-card.short:hover{ background: var(--panel-hover); }
+.card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.card-symbol{ font-size:0.95rem; font-weight:600; color: var(--phosphor); }
+.dir-tag{ font-size:0.7rem; margin-left:6px; }
+.dir-tag.up{ color:var(--up); }
+.dir-tag.down{ color:var(--alert); }
+.card-score{
+  font-size:0.75rem;
+  color:var(--phosphor);
+  border:1px solid var(--grid);
+  padding:2px 9px;
+  border-radius:12px;
+  white-space: nowrap;
+}
+.card-stats{ display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-dim); margin-bottom:10px; }
+.card-stats div{ display:flex; flex-direction:column; gap:3px; }
+.card-stats b{ color: var(--phosphor); font-size:0.82rem; font-weight:600; }
+.card-strategy{
+  display:flex;
+  justify-content:space-between;
+  font-size:0.68rem;
+  color:var(--text-dim);
+  border-top: 1px dashed var(--grid);
+  padding-top: 10px;
+  margin-bottom: 8px;
+}
+.card-strategy div{ display:flex; flex-direction:column; gap:3px; }
+.card-strategy b{ font-size:0.78rem; font-weight:600; }
+.card-strategy-na{ font-size:0.7rem; color:var(--text-dim); padding:8px 0; border-top: 1px dashed var(--grid); }
+.card-badges{ display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px; min-height: 20px; }
+.card-hint{ font-size:0.62rem; color:var(--text-dim); text-align:center; opacity:0.7; }
+.signal-card.expanded .card-hint{ display:none; }
+.signal-card .detail{ margin-top: 4px; }
+.signal-card .detail.open{ margin-top: 10px; }
+.history-wrap{ max-height: 320px; overflow-y: auto; }
+.history-actions{ display:flex; justify-content:flex-end; padding: 10px 16px 0; }
+.history-actions button{ font-size: 0.72rem; padding: 5px 12px; align-self: auto; }
+footer{ text-align:center; color: var(--text-dim); font-size: 0.7rem; padding: 20px; }
 </style>
 </head>
 <body>
-
 <header>
-  <h1>妖币分析器</h1>
-  <p>量价齐动 + OI真实性验证 + 资金费率拥挤度 + 分批止盈策略 + 信号持续时间 · 候选池100个</p>
-  <div class="disclaimer">
-    ⚠️ 本工具的信号和策略基于历史价量与合约数据规则计算(进场看突破、止损基于ATR波动率、三档止盈按风险回报比分级),仅供分析参考,不构成任何投资建议。山寨币市场波动大、流动性差、容易被操纵,资金费率极端时尤其容易发生挤仓,请谨慎对待任何"信号",务必自行判断风险。信号持续时间只在本次页面打开期间累计,刷新页面会重新计时。
-  </div>
+<h1>妖币分析器</h1>
+<p>量价齐动 + OI真实性验证 + 资金费率拥挤度 + 分批止盈策略 + 信号持续时间 · 候选池100个</p>
+<div class="disclaimer">
+⚠️ 本工具的信号和策略基于历史价量与合约数据规则计算(进场看突破、止损基于ATR波动率、三档止盈按风险回报比分级),仅供分析参考,不构成任何投资建议。山寨币市场波动大、流动性差、容易被操纵,资金费率极端时尤其容易发生挤仓,请谨慎对待任何"信号",务必自行判断风险。信号卡片上的"持续"时长只在本次页面打开期间累计,刷新页面会重新计时;下方的"妖币历史记录"会持久保存到本地浏览器,包含每个币种首次出现的时间,刷新或重新打开页面也不会丢失。
+</div>
 </header>
-
 <main>
-  <div class="panel">
-    <div class="params">
-      <div class="param-item">
-        <label>最低24h成交额(USDT)</label>
-        <input type="number" id="minVolume" value="500000" step="100000">
-      </div>
-      <div class="param-item">
-        <label>放量倍数阈值</label>
-        <input type="number" id="volumeThreshold" value="3" step="0.5">
-      </div>
-      <div class="param-item">
-        <label>4h涨跌幅阈值(%)</label>
-        <input type="number" id="priceThreshold" value="8" step="1">
-      </div>
-      <div class="param-item">
-        <label>风险回报比(止盈:止损)</label>
-        <input type="number" id="riskRewardRatio" value="2" step="0.5" min="1">
-      </div>
-      <button id="scanBtn">开始扫描</button>
-      <button id="autoScanBtn">自动扫描: 关闭</button>
-    </div>
-    <div class="status-line">
-      <span><span class="status-dot" id="statusDot"></span>状态: <b id="statusText">待启动</b></span>
-      <span>候选币种: <b id="candidateCount">-</b></span>
-      <span>命中信号: <b id="signalCount">-</b></span>
-      <span>下次自动扫描: <b id="countdown">-</b></span>
-    </div>
-  </div>
-
-  <div class="panel highlight" style="padding:0;">
-    <div class="section-title">🎯 命中信号(点击卡片看完整策略)</div>
-    <div class="signal-grid" id="signalGrid">
-      <div class="empty-state" style="grid-column:1/-1;">还没有扫描结果</div>
-    </div>
-  </div>
-
-  <div class="panel" style="padding:0;">
-    <div class="section-title dim">全部候选币种</div>
-    <div class="table-wrap scrollable">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>币种</th>
-          <th>24h涨跌</th>
-          <th>放量倍数</th>
-          <th>标签</th>
-          <th>评分</th>
-        </tr>
-      </thead>
-      <tbody id="tableBody">
-        <tr><td colspan="6" class="empty-state">点击「开始扫描」拉取数据</td></tr>
-      </tbody>
-    </table>
-    </div>
-  </div>
+<div class="panel">
+<div class="params">
+<div class="param-item">
+<label>最低24h成交额(USDT)</label>
+<input type="number" id="minVolume" value="500000" step="100000">
+</div>
+<div class="param-item">
+<label>放量倍数阈值</label>
+<input type="number" id="volumeThreshold" value="3" step="0.5">
+</div>
+<div class="param-item">
+<label>4h涨跌幅阈值(%)</label>
+<input type="number" id="priceThreshold" value="8" step="1">
+</div>
+<div class="param-item">
+<label>风险回报比(止盈:止损)</label>
+<input type="number" id="riskRewardRatio" value="2" step="0.5" min="1">
+</div>
+<button id="scanBtn">开始扫描</button>
+<button id="autoScanBtn">自动扫描: 关闭</button>
+</div>
+<div class="status-line">
+<span><span class="status-dot" id="statusDot"></span>状态: <b id="statusText">待启动</b></span>
+<span>候选币种: <b id="candidateCount">-</b></span>
+<span>命中信号: <b id="signalCount">-</b></span>
+<span>下次自动扫描: <b id="countdown">-</b></span>
+</div>
+</div>
+<div class="panel highlight" style="padding:0;">
+<div class="section-title">🎯 命中信号(点击卡片看完整策略)</div>
+<div class="signal-grid" id="signalGrid">
+<div class="empty-state" style="grid-column:1/-1;">还没有扫描结果</div>
+</div>
+</div>
+<div class="panel" style="padding:0;">
+<div class="section-title dim">全部候选币种</div>
+<div class="table-wrap scrollable">
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>币种</th>
+<th>24h涨跌</th>
+<th>放量倍数</th>
+<th>标签</th>
+<th>评分</th>
+</tr>
+</thead>
+<tbody id="tableBody">
+<tr><td colspan="6" class="empty-state">点击「开始扫描」拉取数据</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="panel" style="padding:0;">
+<div class="section-title dim">妖币历史记录(持久保存,含首次出现时间)</div>
+<div class="history-actions">
+<button id="clearHistoryBtn">清空历史</button>
+</div>
+<div class="history-wrap">
+<table>
+<thead>
+<tr>
+<th>币种</th>
+<th>方向</th>
+<th>首次出现时间</th>
+<th>最近一次出现</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody id="historyBody">
+<tr><td colspan="5" class="empty-state">还没有历史记录</td></tr>
+</tbody>
+</table>
+</div>
+</div>
 </main>
-
 <footer>数据来源: Binance 合约公开接口(行情/K线/OI/资金费率) · 学习用途</footer>
-
 <script>
 const MAJORS = new Set(['BTC','ETH','BNB','SOL','XRP','ADA','DOGE','TRX','TON','USDC','USDT','FDUSD','DAI','WBTC','STETH']);
 const CANDIDATE_LIMIT = 100; // 初筛后进一步分析的候选数量上限,控制API请求量
-const KLINE_LIMIT = 25;     // 拉取25根1小时K线(用于算均量/4h涨跌)
-
+const KLINE_LIMIT = 25; // 拉取25根1小时K线(用于算均量/4h涨跌)
 let latestResults = [];
 let isScanning = false;
 let autoScanEnabled = false;
@@ -361,6 +364,73 @@ let countdownValue = 0;
 const AUTO_SCAN_SECONDS = 60;
 const signalFirstSeen = new Map(); // symbol -> 首次出现该信号的时间戳,用于算持续时长(仅本次页面会话有效)
 const FETCH_TIMEOUT_MS = 6000; // 单个请求超时时间,避免个别慢请求拖慢整批扫描
+const HISTORY_KEY = 'yaobi_history_v1';
+let historyMap = loadHistory(); // symbol -> {symbol, base, direction, firstSeen, lastSeen}
+
+function loadHistory(){
+  try{
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if(!raw) return new Map();
+    const arr = JSON.parse(raw);
+    return new Map(arr.map(item => [item.symbol, item]));
+  }catch(e){
+    return new Map();
+  }
+}
+
+function saveHistory(){
+  try{
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(Array.from(historyMap.values())));
+  }catch(e){
+    // 存储失败(比如隐私模式禁用localStorage)时静默忽略,不影响主流程
+  }
+}
+
+// 把本轮命中的妖币写入历史记录:第一次出现记下firstSeen,之后每次出现都更新lastSeen
+function recordHistory(signals){
+  const now = Date.now();
+  signals.forEach(r => {
+    const direction = r.strategy?.direction || (r.priceChange4h >= 0 ? 'long' : 'short');
+    if(historyMap.has(r.symbol)){
+      const item = historyMap.get(r.symbol);
+      item.lastSeen = now;
+      item.direction = direction;
+    }else{
+      historyMap.set(r.symbol, { symbol: r.symbol, base: r.base, direction, firstSeen: now, lastSeen: now });
+    }
+  });
+  saveHistory();
+}
+
+function renderHistory(){
+  const body = document.getElementById('historyBody');
+  const items = Array.from(historyMap.values()).sort((a,b) => b.firstSeen - a.firstSeen);
+  if(items.length === 0){
+    body.innerHTML = '<tr><td colspan="5" class="empty-state">还没有历史记录</td></tr>';
+    return;
+  }
+  const activeSymbols = new Set(latestResults.filter(r => r.isSignal).map(r => r.symbol));
+  body.innerHTML = items.map(item => {
+    const isActive = activeSymbols.has(item.symbol);
+    const dirLabel = item.direction === 'short' ? '<span class="down">🔽空</span>' : '<span class="up">🔼多</span>';
+    return `
+      <tr>
+        <td>${item.base}</td>
+        <td>${dirLabel}</td>
+        <td>${formatDateTime(item.firstSeen)}</td>
+        <td>${formatDateTime(item.lastSeen)}</td>
+        <td>${isActive ? '进行中' : '已消失'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function formatDateTime(ts){
+  if(!ts) return '-';
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 // 带超时保护的fetch:超过FETCH_TIMEOUT_MS自动中止,视为该请求失败
 async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS){
@@ -379,23 +449,17 @@ async function scanMarket(){
     return;
   }
   isScanning = true;
-
   const scanBtn = document.getElementById('scanBtn');
   const statusText = document.getElementById('statusText');
   const statusDot = document.getElementById('statusDot');
   const tableBody = document.getElementById('tableBody');
-
   const minVolume = parseFloat(document.getElementById('minVolume').value) || 0;
   const volumeThreshold = parseFloat(document.getElementById('volumeThreshold').value) || 3;
   const priceThreshold = parseFloat(document.getElementById('priceThreshold').value) || 8;
   const riskRewardRatio = parseFloat(document.getElementById('riskRewardRatio').value) || 2;
-
   scanBtn.disabled = true;
   statusDot.classList.add('live');
   statusText.textContent = '拉取全市场行情...';
-  tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">扫描中...</td></tr>';
-  document.getElementById('signalGrid').innerHTML = '<div class="empty-state" style="grid-column:1/-1;">扫描中...</div>';
-
   try{
     // 第一步:拿现货交易对集合(用于剔除"有现货"的币),再拉合约行情做初筛
     const [spotRes, futuresRes] = await Promise.all([
@@ -404,16 +468,13 @@ async function scanMarket(){
     ]);
     if(!spotRes.ok) throw new Error('现货交易对信息请求失败');
     if(!futuresRes.ok) throw new Error('合约行情接口请求失败');
-
     const spotInfo = await spotRes.json();
     const spotSymbols = new Set(
       spotInfo.symbols
         .filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT')
         .map(s => s.symbol)
     );
-
     const allFuturesTickers = await futuresRes.json();
-
     let candidates = allFuturesTickers.filter(t => {
       if(!t.symbol.endsWith('USDT')) return false;
       if(spotSymbols.has(t.symbol)) return false; // 剔除同时有现货交易对的币
@@ -422,19 +483,15 @@ async function scanMarket(){
       if(parseFloat(t.quoteVolume) < minVolume) return false;
       return true;
     });
-
     // 按24h涨跌幅绝对值排序,取前N个做深入分析(控制请求量)
     candidates.sort((a,b) => Math.abs(parseFloat(b.priceChangePercent)) - Math.abs(parseFloat(a.priceChangePercent)));
     candidates = candidates.slice(0, CANDIDATE_LIMIT);
-
     document.getElementById('candidateCount').textContent = candidates.length;
     statusText.textContent = `分析K线中 0/${candidates.length}`;
-
     // 第二步:对候选币种逐个拉K线+OI历史+资金费率(限制并发数,避免触发限频)
     const results = [];
     const concurrency = 12; // 加了超时保护后可以适当调高并发
     let completed = 0;
-
     for(let i = 0; i < candidates.length; i += concurrency){
       const batch = candidates.slice(i, i + concurrency);
       const batchResults = await Promise.allSettled(batch.map(t => analyzeCoin(t)));
@@ -445,11 +502,9 @@ async function scanMarket(){
       statusText.textContent = `分析K线中 ${Math.min(completed, candidates.length)}/${candidates.length}`;
       if(i + concurrency < candidates.length) await sleep(80); // 稍微错峰,避免瞬间并发过高
     }
-
     // 打分排序
     results.forEach(r => scoreCoin(r, volumeThreshold, priceThreshold));
     results.filter(r => r.isSignal).forEach(r => generateStrategy(r, riskRewardRatio));
-
     // 追踪信号持续时间:第一次命中记下时间戳,信号消失或币种掉出候选池就清除记录
     const currentSignalSymbols = new Set(results.filter(r => r.isSignal).map(r => r.symbol));
     for(const key of signalFirstSeen.keys()){
@@ -462,20 +517,17 @@ async function scanMarket(){
         r.signalDurationMs = Date.now() - r.signalSince;
       }
     });
-
     results.sort((a,b) => b.score - a.score);
-
     latestResults = results;
     const signalCount = results.filter(r => r.isSignal).length;
     document.getElementById('signalCount').textContent = signalCount;
     statusText.textContent = '扫描完成';
-
+    recordHistory(results.filter(r => r.isSignal));
     renderSignalList(results);
     renderTable(results);
+    renderHistory();
   }catch(err){
-    statusText.textContent = '扫描失败';
-    tableBody.innerHTML = `<tr><td colspan="6" class="empty-state">出错了: ${err.message}<br>可能是网络问题或接口暂时不可用,稍后重试。</td></tr>`;
-    document.getElementById('signalGrid').innerHTML = '<div class="empty-state" style="grid-column:1/-1;">扫描出错,暂无数据</div>';
+    statusText.textContent = `扫描失败: ${err.message}`;
   }finally{
     scanBtn.disabled = false;
     statusDot.classList.remove('live');
@@ -543,24 +595,19 @@ async function analyzeCoin(ticker){
   if(!klineRes.ok) return null;
   const klines = await klineRes.json();
   if(!klines || klines.length < 6) return null; // 数据不足,跳过(新币冷启动问题)
-
   const closes = klines.map(k => parseFloat(k[4]));
   const highs = klines.map(k => parseFloat(k[2]));
   const lows = klines.map(k => parseFloat(k[3]));
   const volumes = klines.map(k => parseFloat(k[5]));
-
   const latestVolume = volumes[volumes.length - 1];
   const baselineVolumes = volumes.slice(0, volumes.length - 1);
   const avgVolume = baselineVolumes.reduce((a,b) => a+b, 0) / baselineVolumes.length;
   const volumeRatio = avgVolume > 0 ? latestVolume / avgVolume : 0;
-
   const lastClose = closes[closes.length - 1];
   const close1hAgo = closes[closes.length - 2];
   const close4hAgo = closes[Math.max(0, closes.length - 5)];
-
   const priceChange1h = close1hAgo ? ((lastClose - close1hAgo) / close1hAgo) * 100 : 0;
   const priceChange4h = close4hAgo ? ((lastClose - close4hAgo) / close4hAgo) * 100 : 0;
-
   // OI(未平仓合约量)4小时变化,用于验证价格波动背后是否有真实资金进场
   let oiChange4h = null;
   if(oiHist){
@@ -569,7 +616,6 @@ async function analyzeCoin(ticker){
     const oi4hAgo = oiValues[Math.max(0, oiValues.length - 5)];
     oiChange4h = oi4hAgo ? ((latestOI - oi4hAgo) / oi4hAgo) * 100 : null;
   }
-
   // 资金费率,换算成年化百分比方便判断拥挤程度(每8小时结算一次,一天3次)
   let fundingRatePercent = null;
   let fundingAnnualized = null;
@@ -577,7 +623,6 @@ async function analyzeCoin(ticker){
     fundingRatePercent = parseFloat(fundingData.lastFundingRate) * 100;
     fundingAnnualized = fundingRatePercent * 3 * 365;
   }
-
   return {
     symbol,
     base: symbol.replace('USDT',''),
@@ -597,31 +642,25 @@ async function analyzeCoin(ticker){
 }
 
 const FUNDING_EXTREME_ANNUALIZED = 100; // 年化资金费率超过±100%视为极端拥挤
-
 function scoreCoin(coin, volumeThreshold, priceThreshold){
   const volumeHit = coin.volumeRatio >= volumeThreshold;
   const priceHit = Math.abs(coin.priceChange4h) >= priceThreshold;
   const directionHit = coin.directionConsistent;
-
   const oiAvailable = coin.oiChange4h !== null && coin.oiChange4h !== undefined;
   const oiHit = oiAvailable && Math.sign(coin.oiChange4h) !== 0 && Math.sign(coin.oiChange4h) === Math.sign(coin.priceChange4h);
-
   // OI数据缺失时不作为否决条件(很多小币种没有历史OI),但可用时必须方向一致才算真信号
   coin.isSignal = volumeHit && priceHit && directionHit && (!oiAvailable || oiHit);
-
   // 打分:量能45% + 价格35% + 方向一致10% + OI一致10%(数据缺失给中性分,不做过度惩罚)
   const volumeComponent = Math.min(1, coin.volumeRatio / volumeThreshold) * 45;
   const priceComponent = Math.min(1, Math.abs(coin.priceChange4h) / priceThreshold) * 35;
   const directionComponent = directionHit ? 10 : 0;
   const oiComponent = oiAvailable ? (oiHit ? 10 : 0) : 5;
   coin.score = Math.round(volumeComponent + priceComponent + directionComponent + oiComponent);
-
   coin.volumeHit = volumeHit;
   coin.priceHit = priceHit;
   coin.directionHit = directionHit;
   coin.oiAvailable = oiAvailable;
   coin.oiHit = oiHit;
-
   // 资金费率风险标注,只作提示,不影响是否命中信号
   coin.fundingRiskLevel = null;
   if(coin.fundingAnnualized !== null){
@@ -633,7 +672,6 @@ function scoreCoin(coin, volumeThreshold, priceThreshold){
 const ATR_PERIOD = 14;
 const BREAKOUT_LOOKBACK = 20;
 const ATR_STOP_MULTIPLIER = 1.5;
-
 // 简化版ATR:近N根K线真实波幅(True Range)的平均值,衡量这个币"正常情况下"波动多大
 function calcATR(highs, lows, closes, period){
   const trueRanges = [];
@@ -655,20 +693,16 @@ function generateStrategy(coin, riskRewardRatio){
     coin.strategy = null; // 波动率算不出来,不给策略,避免用失真数据误导
     return;
   }
-
   const isLong = coin.priceChange4h >= 0;
   const lookbackHighs = coin.highs.slice(-BREAKOUT_LOOKBACK - 1, -1);
   const lookbackLows = coin.lows.slice(-BREAKOUT_LOOKBACK - 1, -1);
   const lastClose = coin.price;
-
   // 三档止盈:TP1更保守(可以先落袋一部分),TP2是主目标(风险回报比),TP3更激进
   const tp1Mult = Math.max(0.5, riskRewardRatio / 2);
   const tp2Mult = riskRewardRatio;
   const tp3Mult = riskRewardRatio * 1.5;
-
   let direction, refLevel, hasBrokenOut, entryPrice, stopLoss, riskDistance;
   let takeProfit1, takeProfit2, takeProfit3;
-
   if(isLong){
     direction = 'long';
     refLevel = Math.max(...lookbackHighs);
@@ -690,7 +724,6 @@ function generateStrategy(coin, riskRewardRatio){
     takeProfit2 = entryPrice - riskDistance * tp2Mult;
     takeProfit3 = entryPrice - riskDistance * tp3Mult;
   }
-
   coin.strategy = { direction, refLevel, hasBrokenOut, entryPrice, stopLoss, takeProfit1, takeProfit2, takeProfit3, atr };
 }
 
@@ -723,12 +756,10 @@ function attachRowHandlers(containerId){
 function renderSignalList(results){
   const grid = document.getElementById('signalGrid');
   const signals = results.filter(r => r.isSignal);
-
   if(signals.length === 0){
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">本轮没有命中信号的币种,可以试试调低阈值,或者等下一轮扫描</div>';
     return;
   }
-
   grid.innerHTML = signals.map((r, idx) => buildSignalCard(r, `sig-${idx}`)).join('');
   attachCardHandlers();
 }
@@ -737,7 +768,6 @@ function buildSignalCard(r, uid){
   const isLong = r.strategy?.direction !== 'short';
   const cls24h = r.priceChange24h >= 0 ? 'up' : 'down';
   const s = r.strategy;
-
   return `
     <div class="signal-card ${isLong ? '' : 'short'}" data-target="detail-${uid}">
       <div class="card-top">
@@ -780,7 +810,6 @@ function renderTable(results){
     tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">没有符合条件的候选币种,试试调低阈值</td></tr>';
     return;
   }
-
   tableBody.innerHTML = results.map((r, idx) => {
     const uid = `all-${idx}`;
     const cls24h = r.priceChange24h >= 0 ? 'up' : 'down';
@@ -806,7 +835,6 @@ function renderTable(results){
       </tr>
     `;
   }).join('');
-
   attachRowHandlers('tableBody');
 }
 
@@ -867,7 +895,13 @@ function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
 
 document.getElementById('scanBtn').addEventListener('click', scanMarket);
 document.getElementById('autoScanBtn').addEventListener('click', toggleAutoScan);
+document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+  if(!confirm('确定要清空全部历史记录吗?此操作不可恢复。')) return;
+  historyMap.clear();
+  saveHistory();
+  renderHistory();
+});
+renderHistory(); // 页面加载时先把之前保存的历史记录显示出来
 </script>
-
 </body>
 </html>
